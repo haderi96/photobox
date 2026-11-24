@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SnapBooth Studio Pro - Interactive Web Photobox</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        background-color: #09090b;
+        color: #fafafa;
+      }
+      .mirror-mode {
+        transform: scaleX(-1);
+      }
+      @keyframes flashAnim {
+        0% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+      .flash-effect {
+        animation: flashAnim 0.45s ease-out forwards;
+      }
+      /* Custom Scrollbar Horizontal untuk Filter & Frame */
+      .no-scrollbar::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+      }
+      .no-scrollbar::-webkit-scrollbar-track {
+        background: #18181b;
+        border-radius: 10px;
+      }
+      .no-scrollbar::-webkit-scrollbar-thumb {
+        background: #3f3f46;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen flex flex-col selection:bg-rose-500 selection:text-white"
+  >
+    <!-- Flash Layar -->
+    <div
+      id="flash-overlay"
+      class="fixed inset-0 bg-white pointer-events-none opacity-0 z-50"
+    ></div>
+
+    <!-- Header -->
+    <header
+      class="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md sticky top-0 z-40"
+    >
+      <div
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 flex items-center justify-center shadow-lg shadow-rose-500/20"
+          >
+            <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <h1
+              class="font-extrabold text-lg tracking-tight text-white flex items-center gap-2"
+            >
+              SnapBooth<span class="text-rose-500">PRO</span>
+              <span
+                class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                >Studio</span
+              >
+            </h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-zinc-400">
+          <span
+            class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800"
+          >
+            <span
+              class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
+            ></span>
+            HD Camera Ready
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+        <!-- KOLOM KIRI: Kamera & Kontrol (7 Kolom) -->
+        <div class="lg:col-span-7 flex flex-col gap-5">
+          <!-- Frame Kamera Live -->
+          <div
+            class="relative w-full aspect-[4/3] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl"
+          >
+            <video
+              id="webcam"
+              autoplay
+              playsinline
+              class="w-full h-full object-cover mirror-mode transition-all duration-300"
+            ></video>
+
+            <!-- Error Kamera -->
+            <div
+              id="camera-error"
+              class="hidden absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/95 p-6 text-center z-20"
+            >
+              <i
+                data-lucide="camera-off"
+                class="w-12 h-12 text-rose-500 mb-3"
+              ></i>
+              <h3 class="text-lg font-bold text-white">
+                Akses Kamera Dibutuhkan
+              </h3>
+              <p class="text-sm text-zinc-400 max-w-md mt-1">
+                Izinkan akses kamera pada browser Anda dan jalankan melalui Live
+                Server VS Code.
+              </p>
+              <button
+                onclick="initCamera()"
+                class="mt-4 px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold rounded-xl transition"
+              >
+                Aktifkan Kamera
+              </button>
+            </div>
+
+            <!-- Countdown Overlay -->
+            <div
+              id="countdown-overlay"
+              class="hidden absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[2px] z-10"
+            >
+              <span
+                id="countdown-number"
+                class="text-8xl sm:text-9xl font-black text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] animate-bounce"
+                >3</span
+              >
+            </div>
+
+            <!-- Status Pose -->
+            <div
+              id="session-badge"
+              class="hidden absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-white/15 px-4 py-1.5 rounded-full text-xs font-bold text-white flex items-center gap-2 z-10"
+            >
+              <span
+                class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"
+              ></span>
+              <span id="photo-progress">Pose 1 / 3</span>
+            </div>
+
+            <!-- Kontrol Atas Kanan Kamera -->
+            <div class="absolute top-4 right-4 flex items-center gap-2 z-10">
+              <button
+                id="btn-retake-last"
+                title="Hapus Foto Terakhir"
+                class="hidden px-3 py-2 rounded-full bg-amber-500/90 hover:bg-amber-500 text-zinc-950 text-xs font-bold shadow-lg transition flex items-center gap-1.5"
+              >
+                <i data-lucide="undo-2" class="w-3.5 h-3.5"></i> Ulangi Terakhir
+              </button>
+              <button
+                id="btn-mirror"
+                title="Balik Kamera (Mirror)"
+                class="p-2.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/10 text-white transition"
+              >
+                <i data-lucide="flip-horizontal-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Panel Kontrol Utama -->
+          <div
+            class="bg-zinc-900/70 border border-zinc-800/80 rounded-3xl p-5 space-y-5"
+          >
+            <!-- 1. Pilihan Layout Grid -->
+            <div>
+              <label
+                class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2.5 flex items-center gap-1.5"
+              >
+                <i
+                  data-lucide="layout-grid"
+                  class="w-3.5 h-3.5 text-rose-400"
+                ></i>
+                1. Pilih Layout Grid
+              </label>
+              <div
+                class="grid grid-cols-2 sm:grid-cols-4 gap-2.5"
+                id="grid-selector"
+              >
+                <button
+                  data-grid="strip-2"
+                  class="grid-btn px-3 py-2.5 rounded-xl text-xs font-bold bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 transition flex items-center justify-center gap-2"
+                >
+                  <i data-lucide="rows-2" class="w-4 h-4"></i> 2 Foto Strip
+                </button>
+                <button
+                  data-grid="strip-3"
+                  class="grid-btn active px-3 py-2.5 rounded-xl text-xs font-bold bg-rose-600 text-white border border-rose-500 transition flex items-center justify-center gap-2"
+                >
+                  <i data-lucide="rows-3" class="w-4 h-4"></i> 3 Foto Strip
+                </button>
+                <button
+                  data-grid="strip-4"
+                  class="grid-btn px-3 py-2.5 rounded-xl text-xs font-bold bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 transition flex items-center justify-center gap-2"
+                >
+                  <i data-lucide="rows-4" class="w-4 h-4"></i> 4 Foto Strip
+                </button>
+                <button
+                  data-grid="grid-2x2"
+                  class="grid-btn px-3 py-2.5 rounded-xl text-xs font-bold bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 transition flex items-center justify-center gap-2"
+                >
+                  <i data-lucide="grid-2x2" class="w-4 h-4"></i> 4 Kotak (2x2)
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Pilihan 12 Filter Kamera -->
+            <div>
+              <label
+                class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2.5 flex items-center gap-1.5"
+              >
+                <i data-lucide="wand-2" class="w-3.5 h-3.5 text-amber-400"></i>
+                2. Pilih Efek Filter (12 Gaya)
+              </label>
+              <div
+                class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2"
+                id="filter-selector"
+              >
+                <!-- Diisi otomatis via JavaScript -->
+              </div>
+            </div>
+
+            <!-- 3. Timer & Tombol Aksi -->
+            <div
+              class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-3 border-t border-zinc-800"
+            >
+              <div class="flex items-center gap-2.5">
+                <span class="text-xs font-bold text-zinc-400">Timer:</span>
+                <div
+                  class="inline-flex rounded-xl bg-zinc-950 p-1 border border-zinc-800"
+                >
+                  <button
+                    data-timer="3"
+                    class="timer-btn active px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 text-white"
+                  >
+                    3s
+                  </button>
+                  <button
+                    data-timer="5"
+                    class="timer-btn px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-400 hover:text-white"
+                  >
+                    5s
+                  </button>
+                  <button
+                    data-timer="0"
+                    class="timer-btn px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-400 hover:text-white"
+                  >
+                    Instan
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2.5">
+                <button
+                  id="btn-reset"
+                  class="hidden px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                >
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset
+                </button>
+                <button
+                  id="btn-start"
+                  class="flex-1 sm:flex-initial px-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:brightness-110 text-white text-sm font-extrabold shadow-lg shadow-rose-600/25 transition transform active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <i data-lucide="aperture" class="w-5 h-5"></i>
+                  <span id="btn-start-text">Mulai Foto (3 Pose)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KOLOM KANAN: Kustomisasi Frame Lucu & Preview (5 Kolom) -->
+        <div class="lg:col-span-5 flex flex-col gap-5">
+          <!-- Panel Pilihan Tema Frame Lucu -->
+          <div
+            class="bg-zinc-900/70 border border-zinc-800/80 rounded-3xl p-5 space-y-4"
+          >
+            <div class="flex items-center justify-between">
+              <h2
+                class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5"
+              >
+                <i data-lucide="sticker" class="w-4 h-4 text-pink-400"></i> 3.
+                Pilih Frame Custom Lucu
+              </h2>
+              <span
+                id="active-theme-label"
+                class="text-xs font-bold text-rose-400"
+                >Classic White</span
+              >
+            </div>
+
+            <!-- Grid Tema Frame Lucu -->
+            <div
+              class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto no-scrollbar pr-1"
+              id="theme-selector"
+            >
+              <!-- Diisi otomatis via JavaScript -->
+            </div>
+
+            <!-- Input Caption & Toggle Tanggal -->
+            <div
+              class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-zinc-800/80"
+            >
+              <div class="sm:col-span-2">
+                <label
+                  class="text-[11px] font-semibold text-zinc-400 mb-1 block"
+                  >Teks Caption Bawah</label
+                >
+                <input
+                  type="text"
+                  id="strip-caption"
+                  value="BESTIES FOREVER ✨"
+                  maxlength="28"
+                  class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-semibold text-white focus:outline-none focus:border-rose-500 transition"
+                  placeholder="Tulis caption lucu..."
+                />
+              </div>
+              <div>
+                <label
+                  class="text-[11px] font-semibold text-zinc-400 mb-1 block"
+                  >Tanggal</label
+                >
+                <button
+                  id="btn-toggle-date"
+                  class="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs font-semibold text-emerald-400 flex items-center justify-center gap-1.5 transition"
+                >
+                  <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> Aktif
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Area Preview Canvas & Download -->
+          <div
+            class="bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-5 flex flex-col items-center justify-center"
+          >
+            <div
+              class="relative shadow-2xl rounded-lg overflow-hidden bg-white p-1"
+            >
+              <canvas
+                id="strip-canvas"
+                class="max-h-[450px] w-auto object-contain block rounded"
+              ></canvas>
+            </div>
+
+            <button
+              id="btn-download"
+              disabled
+              class="mt-5 w-full py-3.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed text-white font-extrabold text-sm shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2"
+            >
+              <i data-lucide="download" class="w-4 h-4"></i>
+              Simpan & Unduh Hasil Foto (PNG)
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Canvas Tersembunyi untuk Jepretan Kamera -->
+    <canvas id="capture-canvas" class="hidden"></canvas>
+
+    <script>
+      // ==========================================
+      // DATA KONFIGURASI FILTER & FRAME LUCU
+      // ==========================================
+      const FILTERS = [
+        { id: "normal", name: "Normal", css: "none" },
+        {
+          id: "peach",
+          name: "🍑 Peach Glow",
+          css: "brightness(106%) contrast(96%) saturate(125%) sepia(14%)",
+        },
+        {
+          id: "milky",
+          name: "🥛 Soft Milky",
+          css: "brightness(112%) contrast(88%) saturate(85%)",
+        },
+        {
+          id: "vintage",
+          name: "🎞️ 90s Film",
+          css: "sepia(45%) contrast(112%) brightness(98%) saturate(115%)",
+        },
+        {
+          id: "bw",
+          name: "🖤 Noir B&W",
+          css: "grayscale(100%) contrast(125%) brightness(102%)",
+        },
+        {
+          id: "vivid",
+          name: "🌈 Vivid Pop",
+          css: "contrast(118%) saturate(145%) brightness(104%)",
+        },
+        {
+          id: "cool",
+          name: "🧊 Cool Tone",
+          css: "brightness(104%) contrast(105%) saturate(95%) hue-rotate(-12deg)",
+        },
+        {
+          id: "warm",
+          name: "☀️ Golden Hour",
+          css: "sepia(30%) saturate(140%) brightness(106%) contrast(105%)",
+        },
+        {
+          id: "dreamy",
+          name: "🌸 Pink Dream",
+          css: "brightness(108%) saturate(120%) hue-rotate(-18deg) contrast(95%)",
+        },
+        {
+          id: "cyber",
+          name: "👾 Cyber Neon",
+          css: "contrast(130%) saturate(160%) hue-rotate(165deg)",
+        },
+        {
+          id: "lomo",
+          name: "📷 Lomo Retro",
+          css: "contrast(135%) saturate(125%) brightness(95%) sepia(20%)",
+        },
+        {
+          id: "matcha",
+          name: "🍵 Matcha Tint",
+          css: "brightness(105%) contrast(98%) sepia(22%) hue-rotate(38deg)",
+        },
+      ];
+
+      const CUTE_FRAMES = [
+        {
+          id: "classic-white",
+          name: "🤍 Classic White",
+          bg: "#ffffff",
+          text: "#18181b",
+          border: "#e4e4e7",
+          pattern: "none",
+          stickers: [],
+          radius: 12,
+        },
+        {
+          id: "noir-black",
+          name: "🖤 Sleek Black",
+          bg: "#121215",
+          text: "#fafafa",
+          border: "#27272a",
+          pattern: "none",
+          stickers: ["✨", "⚡"],
+          radius: 12,
+        },
+        {
+          id: "coquette-pink",
+          name: "🎀 Coquette Pink",
+          bg: "#ffe4ec",
+          text: "#9d174d",
+          border: "#fbcfe8",
+          pattern: "hearts",
+          patternColor: "rgba(244, 114, 182, 0.22)",
+          stickers: ["🎀", "🩰", "🦢", "💗"],
+          radius: 24,
+        },
+        {
+          id: "y2k-check",
+          name: "🏁 Y2K Checker",
+          bg: "#f3e8ff",
+          text: "#581c87",
+          border: "#d8b4fe",
+          pattern: "checker",
+          patternColor: "rgba(192, 132, 252, 0.25)",
+          stickers: ["👾", "🦋", "💿", "✨"],
+          radius: 16,
+        },
+        {
+          id: "cute-bear",
+          name: "🧸 Choco Bear",
+          bg: "#fef3c7",
+          text: "#78350f",
+          border: "#fde68a",
+          pattern: "dots",
+          patternColor: "rgba(217, 119, 6, 0.2)",
+          stickers: ["🧸", "🍪", "🤎", "🍯"],
+          radius: 22,
+        },
+        {
+          id: "strawberry-milk",
+          name: "🍓 Berry Milk",
+          bg: "#fff1f2",
+          text: "#be123c",
+          border: "#fecdd3",
+          pattern: "stripes",
+          patternColor: "rgba(251, 113, 133, 0.18)",
+          stickers: ["🍓", "🍰", "🌸", "💕"],
+          radius: 20,
+        },
+        {
+          id: "sky-cloud",
+          name: "☁️ Dreamy Sky",
+          bg: "#e0f2fe",
+          text: "#0369a1",
+          border: "#bae6fd",
+          pattern: "stars",
+          patternColor: "rgba(56, 189, 248, 0.28)",
+          stickers: ["☁️", "🫧", "🩵", "⭐"],
+          radius: 24,
+        },
+        {
+          id: "matcha-cat",
+          name: "🐱 Matcha Cat",
+          bg: "#ecfdf5",
+          text: "#065f46",
+          border: "#a7f3d0",
+          pattern: "dots",
+          patternColor: "rgba(16, 185, 129, 0.2)",
+          stickers: ["🐱", "🍵", "🍀", "🐾"],
+          radius: 20,
+        },
+        {
+          id: "cyber-grid",
+          name: "🕹️ Retro Arcade",
+          bg: "#090d16",
+          text: "#38bdf8",
+          border: "#0284c7",
+          pattern: "grid",
+          patternColor: "rgba(56, 189, 248, 0.18)",
+          stickers: ["🕹️", "🚀", "👾", "⚡"],
+          radius: 8,
+        },
+        {
+          id: "butter-daisy",
+          name: "🌼 Butter Daisy",
+          bg: "#fefce8",
+          text: "#854d0e",
+          border: "#fef08a",
+          pattern: "hearts",
+          patternColor: "rgba(234, 179, 8, 0.22)",
+          stickers: ["🌼", "🍋", "🐥", "☀️"],
+          radius: 22,
+        },
+        {
+          id: "lavender-dream",
+          name: "🦄 Lilac Magic",
+          bg: "#f5f3ff",
+          text: "#5b21b6",
+          border: "#ddd6fe",
+          pattern: "stars",
+          patternColor: "rgba(139, 92, 246, 0.22)",
+          stickers: ["🦄", "🔮", "💜", "✨"],
+          radius: 24,
+        },
+        {
+          id: "cow-print",
+          name: "🐮 Moo Cow",
+          bg: "#fafafa",
+          text: "#18181b",
+          border: "#d4d4d8",
+          pattern: "cow",
+          patternColor: "#27272a",
+          stickers: ["🐮", "🥛", "🤍", "🖤"],
+          radius: 16,
+        },
+      ];
+
+      // ==========================================
+      // STATE & ELEMEN DOM
+      // ==========================================
+      const video = document.getElementById("webcam");
+      const captureCanvas = document.getElementById("capture-canvas");
+      const stripCanvas = document.getElementById("strip-canvas");
+      const stripCtx = stripCanvas.getContext("2d");
+      const flashOverlay = document.getElementById("flash-overlay");
+      const countdownOverlay = document.getElementById("countdown-overlay");
+      const countdownNumber = document.getElementById("countdown-number");
+      const sessionBadge = document.getElementById("session-badge");
+      const photoProgress = document.getElementById("photo-progress");
+      const btnStart = document.getElementById("btn-start");
+      const btnStartText = document.getElementById("btn-start-text");
+      const btnReset = document.getElementById("btn-reset");
+      const btnRetakeLast = document.getElementById("btn-retake-last");
+      const btnDownload = document.getElementById("btn-download");
+      const btnMirror = document.getElementById("btn-mirror");
+      const btnToggleDate = document.getElementById("btn-toggle-date");
+      const captionInput = document.getElementById("strip-caption");
+      const activeThemeLabel = document.getElementById("active-theme-label");
+
+      let isMirrored = true;
+      let currentFilter = FILTERS[0].css;
+      let currentGrid = "strip-3"; // strip-2, strip-3, strip-4, grid-2x2
+      let currentTheme = CUTE_FRAMES[0];
+      let timerSeconds = 3;
+      let showDate = true;
+      let capturedPhotos = [];
+      let isCapturing = false;
+
+      function getRequiredPoses() {
+        if (currentGrid === "strip-2") return 2;
+        if (currentGrid === "strip-3") return 3;
+        return 4; // strip-4 dan grid-2x2 butuh 4 foto
+      }
+
+      // ==========================================
+      // INISIALISASI UI DINAMIS (FILTER & FRAME)
+      // ==========================================
+      function buildUIControls() {
+        // Render Tombol Filter
+        const filterContainer = document.getElementById("filter-selector");
+        FILTERS.forEach((f, idx) => {
+          const btn = document.createElement("button");
+          btn.className = `filter-btn px-2.5 py-2 rounded-xl text-[11px] font-bold border transition truncate ${
+            idx === 0
+              ? "bg-rose-600 text-white border-rose-500"
+              : "bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700/60"
+          }`;
+          btn.textContent = f.name;
+          btn.addEventListener("click", () => {
+            document.querySelectorAll(".filter-btn").forEach((b) => {
+              b.className =
+                "filter-btn px-2.5 py-2 rounded-xl text-[11px] font-bold border transition truncate bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700/60";
+            });
+            btn.className =
+              "filter-btn px-2.5 py-2 rounded-xl text-[11px] font-bold border transition truncate bg-rose-600 text-white border-rose-500";
+            currentFilter = f.css;
+            video.style.filter = currentFilter;
+          });
+          filterContainer.appendChild(btn);
+        });
+
+        // Render Tombol Tema Frame Lucu
+        const themeContainer = document.getElementById("theme-selector");
+        CUTE_FRAMES.forEach((theme, idx) => {
+          const btn = document.createElement("button");
+          btn.className = `theme-btn p-2 rounded-xl text-[11px] font-bold border transition flex flex-col items-center gap-1 text-center ${
+            idx === 0
+              ? "ring-2 ring-rose-500 border-rose-500 bg-zinc-800 text-white"
+              : "border-zinc-700/70 bg-zinc-950/80 hover:bg-zinc-800 text-zinc-300"
+          }`;
+          btn.innerHTML = `
+                    <span class="w-full h-4 rounded-md border border-black/10 block" style="background-color: ${theme.bg};"></span>
+                    <span class="truncate w-full">${theme.name}</span>
+                `;
+          btn.addEventListener("click", () => {
+            document.querySelectorAll(".theme-btn").forEach((b) => {
+              b.classList.remove(
+                "ring-2",
+                "ring-rose-500",
+                "border-rose-500",
+                "bg-zinc-800",
+                "text-white",
+              );
+              b.classList.add(
+                "border-zinc-700/70",
+                "bg-zinc-950/80",
+                "text-zinc-300",
+              );
+            });
+            btn.classList.remove(
+              "border-zinc-700/70",
+              "bg-zinc-950/80",
+              "text-zinc-300",
+            );
+            btn.classList.add(
+              "ring-2",
+              "ring-rose-500",
+              "border-rose-500",
+              "bg-zinc-800",
+              "text-white",
+            );
+
+            currentTheme = theme;
+            activeThemeLabel.textContent = theme.name;
+            renderPhotoStrip();
+          });
+          themeContainer.appendChild(btn);
+        });
+      }
+
+      // ==========================================
+      // KAMERA & RENDERING CANVAS
+      // ==========================================
+      async function initCamera() {
+        try {
+          document.getElementById("camera-error").classList.add("hidden");
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 960 },
+              facingMode: "user",
+            },
+            audio: false,
+          });
+          video.srcObject = stream;
+        } catch (err) {
+          console.error(err);
+          document.getElementById("camera-error").classList.remove("hidden");
+        }
+      }
+
+      // Menggambar Pola Latar Belakang Frame Lucu
+      function drawBackgroundPattern(ctx, w, h, theme) {
+        ctx.fillStyle = theme.bg;
+        ctx.fillRect(0, 0, w, h);
+
+        if (theme.pattern === "none") return;
+
+        ctx.save();
+        ctx.fillStyle = theme.patternColor || "rgba(0,0,0,0.1)";
+        ctx.strokeStyle = theme.patternColor || "rgba(0,0,0,0.1)";
+
+        if (theme.pattern === "dots") {
+          for (let x = 20; x < w; x += 36) {
+            for (let y = 20; y < h; y += 36) {
+              ctx.beginPath();
+              ctx.arc(x + (y % 72 === 0 ? 18 : 0), y, 5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        } else if (theme.pattern === "checker") {
+          const size = 32;
+          for (let x = 0; x < w; x += size) {
+            for (let y = 0; y < h; y += size) {
+              if ((x / size + y / size) % 2 === 0) {
+                ctx.fillRect(x, y, size, size);
+              }
+            }
+          }
+        } else if (theme.pattern === "stripes") {
+          ctx.lineWidth = 10;
+          for (let i = -h; i < w + h; i += 32) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i + h, h);
+            ctx.stroke();
+          }
+        } else if (theme.pattern === "grid") {
+          ctx.lineWidth = 1.5;
+          for (let x = 0; x < w; x += 30) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+            ctx.stroke();
+          }
+          for (let y = 0; y < h; y += 30) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+            ctx.stroke();
+          }
+        } else if (theme.pattern === "hearts") {
+          ctx.font = "20px sans-serif";
+          for (let x = 16; x < w; x += 54) {
+            for (let y = 28; y < h; y += 54) {
+              ctx.fillText("♥", x + (y % 108 === 0 ? 24 : 0), y);
+            }
+          }
+        } else if (theme.pattern === "stars") {
+          ctx.font = "20px sans-serif";
+          for (let x = 16; x < w; x += 56) {
+            for (let y = 28; y < h; y += 56) {
+              ctx.fillText("★", x + (y % 112 === 0 ? 26 : 0), y);
+            }
+          }
+        } else if (theme.pattern === "cow") {
+          const spots = [
+            [40, 60, 35, 22],
+            [w - 50, 140, 40, 28],
+            [30, h * 0.45, 32, 42],
+            [w - 40, h * 0.65, 38, 25],
+            [60, h - 90, 42, 24],
+            [w - 80, h - 50, 35, 20],
+          ];
+          spots.forEach(([sx, sy, rx, ry]) => {
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, rx, ry, 0.4, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+        ctx.restore();
+      }
+
+      // Helper Rounded Image Clip
+      function drawRoundedImage(ctx, img, x, y, w, h, r) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        ctx.clip();
+        ctx.drawImage(img, x, y, w, h);
+        ctx.restore();
+
+        // Bingkai tipis di sekeliling tiap foto
+        ctx.save();
+        ctx.strokeStyle = currentTheme.border;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Render Hasil Akhir Photo Strip / Grid
+      function renderPhotoStrip() {
+        const totalPoses = getRequiredPoses();
+        const is2x2 = currentGrid === "grid-2x2";
+
+        const padding = 36;
+        const gap = 22;
+        const footerHeight = 115;
+
+        let canvasW,
+          canvasH,
+          slotCoords = [];
+
+        if (is2x2) {
+          // Layout Grid 2x2 Kotak
+          canvasW = 840;
+          const photoW = (canvasW - padding * 2 - gap) / 2;
+          const photoH = Math.round(photoW * 0.75);
+          canvasH = padding + photoH * 2 + gap + footerHeight;
+
+          for (let row = 0; row < 2; row++) {
+            for (let col = 0; col < 2; col++) {
+              slotCoords.push({
+                x: padding + col * (photoW + gap),
+                y: padding + row * (photoH + gap),
+                w: photoW,
+                h: photoH,
+              });
+            }
+          }
+        } else {
+          // Layout Vertical Strip (2, 3, atau 4 foto)
+          canvasW = 560;
+          const photoW = canvasW - padding * 2;
+          const photoH = Math.round(photoW * 0.75);
+          canvasH =
+            padding +
+            photoH * totalPoses +
+            gap * (totalPoses - 1) +
+            footerHeight;
+
+          for (let i = 0; i < totalPoses; i++) {
+            slotCoords.push({
+              x: padding,
+              y: padding + i * (photoH + gap),
+              w: photoW,
+              h: photoH,
+            });
+          }
+        }
+
+        stripCanvas.width = canvasW;
+        stripCanvas.height = canvasH;
+
+        // 1. Gambar Background & Pola Lucu
+        drawBackgroundPattern(stripCtx, canvasW, canvasH, currentTheme);
+
+        // 2. Gambar Slot Foto
+        slotCoords.forEach((slot, idx) => {
+          if (capturedPhotos[idx]) {
+            drawRoundedImage(
+              stripCtx,
+              capturedPhotos[idx],
+              slot.x,
+              slot.y,
+              slot.w,
+              slot.h,
+              currentTheme.radius,
+            );
+          } else {
+            // Placeholder Slot
+            stripCtx.save();
+            stripCtx.fillStyle = "rgba(128, 128, 128, 0.14)";
+            stripCtx.beginPath();
+            stripCtx.roundRect(
+              slot.x,
+              slot.y,
+              slot.w,
+              slot.h,
+              currentTheme.radius,
+            );
+            stripCtx.fill();
+
+            stripCtx.strokeStyle = currentTheme.border;
+            stripCtx.setLineDash([8, 6]);
+            stripCtx.lineWidth = 2;
+            stripCtx.stroke();
+            stripCtx.setLineDash([]);
+
+            stripCtx.fillStyle = currentTheme.text;
+            stripCtx.globalAlpha = 0.4;
+            stripCtx.font = '700 20px "Fredoka", sans-serif';
+            stripCtx.textAlign = "center";
+            stripCtx.fillText(
+              `POSE #${idx + 1}`,
+              slot.x + slot.w / 2,
+              slot.y + slot.h / 2 + 7,
+            );
+            stripCtx.restore();
+          }
+
+          // Tambahkan Stiker Lucu di Sudut Foto jika tema memiliki stiker
+          if (currentTheme.stickers && currentTheme.stickers.length > 0) {
+            const sticker =
+              currentTheme.stickers[idx % currentTheme.stickers.length];
+            stripCtx.save();
+            stripCtx.font = "34px sans-serif";
+            stripCtx.textAlign = "center";
+            const isLeft = idx % 2 === 0;
+            const sx = isLeft ? slot.x + 14 : slot.x + slot.w - 14;
+            const sy = slot.y + slot.h - 6;
+            stripCtx.fillText(sticker, sx, sy);
+            stripCtx.restore();
+          }
+        });
+
+        // 3. Gambar Footer Caption & Tanggal
+        const footerY = canvasH - footerHeight;
+        stripCtx.save();
+        stripCtx.fillStyle = currentTheme.text;
+        stripCtx.textAlign = "center";
+
+        const captionText = captionInput.value.trim() || "SNAPBOOTH PRO";
+        stripCtx.font = '700 26px "Fredoka", sans-serif';
+        stripCtx.fillText(
+          captionText,
+          canvasW / 2,
+          showDate ? footerY + 54 : footerY + 66,
+        );
+
+        if (showDate) {
+          const today = new Date().toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          });
+          stripCtx.font = '400 14px "Space Mono", monospace';
+          stripCtx.globalAlpha = 0.7;
+          stripCtx.fillText(today, canvasW / 2, footerY + 84);
+        }
+        stripCtx.restore();
+      }
+
+      // Ambil 1 Foto dari Video
+      function takeSnapshot() {
+        return new Promise((resolve) => {
+          flashOverlay.classList.remove("flash-effect");
+          void flashOverlay.offsetWidth;
+          flashOverlay.classList.add("flash-effect");
+
+          const targetW = 800;
+          const targetH = 600;
+          captureCanvas.width = targetW;
+          captureCanvas.height = targetH;
+          const ctx = captureCanvas.getContext("2d");
+
+          const vW = video.videoWidth || 800;
+          const vH = video.videoHeight || 600;
+          const vRatio = vW / vH;
+          const targetRatio = targetW / targetH;
+          let sx, sy, sWidth, sHeight;
+
+          if (vRatio > targetRatio) {
+            sHeight = vH;
+            sWidth = vH * targetRatio;
+            sx = (vW - sWidth) / 2;
+            sy = 0;
+          } else {
+            sWidth = vW;
+            sHeight = vW / targetRatio;
+            sx = 0;
+            sy = (vH - sHeight) / 2;
+          }
+
+          ctx.save();
+          ctx.filter = currentFilter;
+          if (isMirrored) {
+            ctx.translate(targetW, 0);
+            ctx.scale(-1, 1);
+          }
+          ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetW, targetH);
+          ctx.restore();
+
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.src = captureCanvas.toDataURL("image/png");
+        });
+      }
+
+      // Countdown
+      function runCountdown(seconds) {
+        return new Promise((resolve) => {
+          if (seconds <= 0) return resolve();
+          countdownOverlay.classList.remove("hidden");
+          let count = seconds;
+          countdownNumber.textContent = count;
+
+          const interval = setInterval(() => {
+            count--;
+            if (count > 0) {
+              countdownNumber.textContent = count;
+            } else {
+              clearInterval(interval);
+              countdownOverlay.classList.add("hidden");
+              resolve();
+            }
+          }, 1000);
+        });
+      }
+
+      // Sesi Pemotretan Beruntun
+      async function startPhotoboxSession() {
+        if (isCapturing) return;
+        const totalPoses = getRequiredPoses();
+
+        // Jika foto sebelumnya sudah penuh, mulai ulang dari 0
+        if (capturedPhotos.length >= totalPoses) {
+          capturedPhotos = [];
+          renderPhotoStrip();
+        }
+
+        isCapturing = true;
+        btnStart.disabled = true;
+        btnStart.classList.add("opacity-50", "cursor-not-allowed");
+        btnReset.classList.add("hidden");
+        btnRetakeLast.classList.add("hidden");
+        btnDownload.disabled = true;
+        sessionBadge.classList.remove("hidden");
+
+        while (capturedPhotos.length < totalPoses) {
+          const currentStep = capturedPhotos.length + 1;
+          photoProgress.textContent = `Pose ${currentStep} dari ${totalPoses}`;
+          await runCountdown(timerSeconds);
+          const photo = await takeSnapshot();
+          capturedPhotos.push(photo);
+          renderPhotoStrip();
+
+          if (capturedPhotos.length < totalPoses) {
+            await new Promise((r) => setTimeout(r, 750));
+          }
+        }
+
+        isCapturing = false;
+        sessionBadge.classList.add("hidden");
+        btnStart.disabled = false;
+        btnStart.classList.remove("opacity-50", "cursor-not-allowed");
+        updateActionButtons();
+      }
+
+      function updateActionButtons() {
+        const totalPoses = getRequiredPoses();
+        if (capturedPhotos.length === 0) {
+          btnStartText.textContent = `Mulai Foto (${totalPoses} Pose)`;
+          btnReset.classList.add("hidden");
+          btnRetakeLast.classList.add("hidden");
+          btnDownload.disabled = true;
+        } else if (capturedPhotos.length < totalPoses) {
+          btnStartText.textContent = `Lanjut Sisa (${totalPoses - capturedPhotos.length} Pose)`;
+          btnReset.classList.remove("hidden");
+          btnRetakeLast.classList.remove("hidden");
+          btnDownload.disabled = true;
+        } else {
+          btnStartText.textContent = `Foto Ulang Semua`;
+          btnReset.classList.remove("hidden");
+          btnRetakeLast.classList.remove("hidden");
+          btnDownload.disabled = false;
+        }
+      }
+
+      // ==========================================
+      // EVENT LISTENERS
+      // ==========================================
+      btnStart.addEventListener("click", startPhotoboxSession);
+
+      // Hapus hanya foto terakhir (Retake 1 pose)
+      btnRetakeLast.addEventListener("click", () => {
+        if (isCapturing || capturedPhotos.length === 0) return;
+        capturedPhotos.pop();
+        renderPhotoStrip();
+        updateActionButtons();
+      });
+
+      // Reset semua foto
+      btnReset.addEventListener("click", () => {
+        if (isCapturing) return;
+        capturedPhotos = [];
+        renderPhotoStrip();
+        updateActionButtons();
+      });
+
+      // Mirror Toggle
+      btnMirror.addEventListener("click", () => {
+        isMirrored = !isMirrored;
+        video.classList.toggle("mirror-mode", isMirrored);
+      });
+
+      // Pilih Layout Grid
+      document.querySelectorAll(".grid-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (isCapturing) return;
+          document.querySelectorAll(".grid-btn").forEach((b) => {
+            b.className =
+              "grid-btn px-3 py-2.5 rounded-xl text-xs font-bold bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 transition flex items-center justify-center gap-2";
+          });
+          btn.className =
+            "grid-btn active px-3 py-2.5 rounded-xl text-xs font-bold bg-rose-600 text-white border border-rose-500 transition flex items-center justify-center gap-2";
+
+          currentGrid = btn.dataset.grid;
+          const maxPoses = getRequiredPoses();
+          if (capturedPhotos.length > maxPoses) {
+            capturedPhotos = capturedPhotos.slice(0, maxPoses);
+          }
+          renderPhotoStrip();
+          updateActionButtons();
+        });
+      });
+
+      // Pilih Timer
+      document.querySelectorAll(".timer-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".timer-btn").forEach((b) => {
+            b.classList.remove("bg-zinc-800", "text-white");
+            b.classList.add("text-zinc-400");
+          });
+          btn.classList.add("bg-zinc-800", "text-white");
+          btn.classList.remove("text-zinc-400");
+          timerSeconds = parseInt(btn.dataset.timer, 10);
+        });
+      });
+
+      // Toggle Tanggal
+      btnToggleDate.addEventListener("click", () => {
+        showDate = !showDate;
+        btnToggleDate.innerHTML = showDate
+          ? `<i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> Aktif`
+          : `<i data-lucide="calendar-x" class="w-3.5 h-3.5"></i> Sembunyi`;
+        btnToggleDate.classList.toggle("text-emerald-400", showDate);
+        btnToggleDate.classList.toggle("text-zinc-400", !showDate);
+        lucide.createIcons();
+        renderPhotoStrip();
+      });
+
+      // Real-time Caption
+      captionInput.addEventListener("input", renderPhotoStrip);
+
+      // Download PNG
+      btnDownload.addEventListener("click", () => {
+        const link = document.createElement("a");
+        link.download = `SnapBoothPro-${currentTheme.id}-${Date.now()}.png`;
+        link.href = stripCanvas.toDataURL("image/png");
+        link.click();
+      });
+
+      // Boot Aplikasi
+      buildUIControls();
+      lucide.createIcons();
+      initCamera();
+      renderPhotoStrip();
+      updateActionButtons();
+    </script>
+  </body>
+</html>
